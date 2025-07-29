@@ -1,6 +1,7 @@
 package users
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/errors"
@@ -20,7 +21,7 @@ type User struct {
 	Password 	 string `json:"-"`
 }
 
-func (user *User) ValidateEmail() *errors.RestErr {
+func (user *User) Validate() *errors.RestErr {
 	user.FirstName = strings.TrimSpace(user.FirstName)
 	user.LastName = strings.TrimSpace(user.LastName)
 	
@@ -29,6 +30,7 @@ func (user *User) ValidateEmail() *errors.RestErr {
 		return errors.NewBadRequestError("invalid email")
 	}
 	user.Password = strings.TrimSpace(user.Password)
+	fmt.Println(user.Password, len(user.Password))
 	if len(user.Password) < 4 {
 		return errors.NewBadRequestError("invalid password. Password has to be at least 4 symbols")
 	}

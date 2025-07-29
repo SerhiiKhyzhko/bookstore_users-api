@@ -2,18 +2,25 @@ package services
 
 import (
 	"github.com/SerhiiKhyzhko/bookstore_users-api/domain/users"
-	dateutils "github.com/SerhiiKhyzhko/bookstore_users-api/utils/date_utils"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/crypto_utils"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/date_utils"
 	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/errors"
 )
 
 func CreateUser(user users.User) (*users.User, *errors.RestErr) {
-	if err := user.ValidateEmail(); err != nil{
+	user.Status = users.StatusActive
+	user.DateCreating = dateutils.GetNowDbFormat()
+	hashedPassword, err := cryptoutils.GetBcrypt(user.Password)
+	if err != nil {
+		return nil, err
+	}
+	user.Password = hashedPassword
+
+	if err := user.Validate(); err != nil{
 		return nil, err
 	}
 
-	user.Status = users.StatusActive
-	user.DateCreating = dateutils.GetNowDbFormat()
-	if err := user.Save(); err != nil {
+	if err = user.Save(); err != nil {
 		return nil, err
 	}
 
