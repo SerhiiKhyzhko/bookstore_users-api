@@ -1,6 +1,7 @@
 package users
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/errors"
@@ -20,7 +21,7 @@ type User struct {
 	Password 	 string `json:"-"`
 }
 
-func (user *User) ValidateEmail() *errors.RestErr {
+func (user *User) Validate() *errors.RestErr {
 	user.FirstName = strings.TrimSpace(user.FirstName)
 	user.LastName = strings.TrimSpace(user.LastName)
 	
