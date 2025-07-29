@@ -5,9 +5,10 @@ import(
 )
 
 func mapUrls() {
-	router.POST("/users", users.CreateUser) 
-	router.GET("/users/:users_id", users.GetUser)
-	router.PUT("/users/:users_id",users.UpdateUser)
-	router.PATCH("/users/:users_id",users.UpdateUser)
-	router.DELETE("/users/:users_id",users.DeleteUser)
+	router.POST("/users", users.Create) 
+	router.GET("/users/:users_id", users.Get)
+	router.PUT("/users/:users_id",users.Update)
+	router.PATCH("/users/:users_id",users.Update)
+	router.DELETE("/users/:users_id",users.Delete)
+	router.GET("internal/users/search", users.Search)
 }
