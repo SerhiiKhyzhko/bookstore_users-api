@@ -1,7 +1,6 @@
 package users
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/errors"
@@ -20,6 +19,8 @@ type User struct {
 	Status 		 string `json:"status"`
 	Password 	 string `json:"-"`
 }
+
+type Users []User
 
 func (user *User) Validate() *errors.RestErr {
 	user.FirstName = strings.TrimSpace(user.FirstName)
