@@ -12,3 +12,10 @@ func GetBcrypt(input string) (string, *errors.RestErr) {
 	}
 	return string(hashedPassword), nil
 }
+
+func ComparePassword(hashedPassword string, password string) *errors.RestErr {
+	if err:= bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil{
+		return errors.NewBadRequestError(err.Error())
+	}
+	return nil
+}
