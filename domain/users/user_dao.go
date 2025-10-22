@@ -1,116 +1,128 @@
 package users
 
 import (
+	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/SerhiiKhyzhko/bookstore_users-api/datasources/mysql/users_db"
 	"github.com/SerhiiKhyzhko/bookstore_users-api/logger"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/errors"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/mysql_utils"
+	mysqlutils "github.com/SerhiiKhyzhko/bookstore_users-api/utils/mysql_utils"
+	"github.com/SerhiiKhyzhko/bookstore_utils-go/rest_errors"
 )
 
 const (
-	queryInsertUser    = "INSERT INTO users(first_name, last_name, email, date_created, status, password) VALUES(?, ?, ?, ?, ?, ?);"
-	queryGetUser      = "SELECT id, first_name, last_name, email, date_created, status FROM users WHERE id=?;"
-	queryUpdateUser   = "UPDATE users SET first_name=?, last_name=?, email=? WHERE id=?;"
-	queryDeleteUer    = "DELETE FROM users WHERE id=&;"
-	queryUserByStatus = "SELECT id, first_name, last_name, email, date_created, status FROM users WHERE status=?;"
-	queryFindByEmail = "SELECT id, first_name, last_name, email, date_created, status, password FROM users WHERE email=? AND status=?;"
+	queryInsertUser        = "INSERT INTO users(first_name, last_name, email, date_created, status, password) VALUES(?, ?, ?, ?, ?, ?);"
+	queryGetUser           = "SELECT id, first_name, last_name, email, date_created, status FROM users WHERE id=?;"
+	queryUpdateUser        = "UPDATE users SET first_name=?, last_name=?, email=? WHERE id=?;"
+	queryPartialUpdateUser = "UPDATE users SET"
+	queryDeleteUer         = "DELETE FROM users WHERE id=&;"
+	queryUserByStatus      = "SELECT id, first_name, last_name, email, date_created, status FROM users WHERE status=?;"
+	queryFindByEmail       = "SELECT id, first_name, last_name, email, date_created, status, password FROM users WHERE email=? AND status=?;"
 )
 
-func (user *User) Get() *errors.RestErr {
-	stmt, err := usersdb.Client.Prepare(queryGetUser)
-	if err != nil {
-		logger.Error("error when trying to prepare GET user statement", err)
-		return errors.NewInternalServerError("database error")
-	}
-	defer stmt.Close()
-
-	result := stmt.QueryRow(user.Id)
-	if getErr := result.Scan(
-		&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreating, &user.Status); getErr != nil{
-		
-		logger.Error("error when trying to GET user by id", getErr)	
-		return errors.NewInternalServerError("database error")
-	}
-	
-	return nil
+type UserDaoInterface interface {
+	Get(context.Context, int64) (*User, *rest_errors.RestErr)
+	Save(context.Context, User) (int64, *rest_errors.RestErr)
+	Delete(context.Context, int64) *rest_errors.RestErr
+	FindByStatus(context.Context, string) ([]User, *rest_errors.RestErr)
+	FindByEmail(context.Context, string) (*User, *rest_errors.RestErr)
+	PartialUpdate(context.Context, PartialUser) *rest_errors.RestErr
+	Update(context.Context, User) *rest_errors.RestErr
 }
 
-func (user *User) Save() *errors.RestErr {
-	stmt, err := usersdb.Client.Prepare(queryInsertUser)
-	if err != nil {
-		logger.Error("error when trying to prepare Save user statement", err)
-		return errors.NewInternalServerError("database error")
-	}
-	defer stmt.Close()
+type userDaoStruct struct {
+	client *sql.DB
+}
 
-	insertResult, saveErr := stmt.Exec(
-		user.FirstName, user.LastName, user.Email, user.DateCreating, user.Status, user.Password)
-	if saveErr != nil {
-		
-		logger.Error("error when trying to Save user", saveErr)
-		return errors.NewInternalServerError("database error")
+func NewUserDao(dbClient *sql.DB) *userDaoStruct {
+	return &userDaoStruct{
+		client: dbClient,
 	}
-	
+}
+
+func (d *userDaoStruct) Get(ctx context.Context, id int64) (*User, *rest_errors.RestErr) {
+	var user User
+
+	result := d.client.QueryRowContext(ctx, queryGetUser, id)
+	if getErr := result.Scan(
+		&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreating, &user.Status); getErr != nil {
+
+		logger.Error("error when trying to GET user by id", getErr)
+		return nil, rest_errors.NewInternalServerError("error when trying to get user", errors.New("database error"))
+	}
+
+	return &user, nil
+}
+
+func (d *userDaoStruct) Save(ctx context.Context, user User) (int64, *rest_errors.RestErr) {
+	insertResult, saveErr := d.client.ExecContext(
+		ctx,
+		queryInsertUser,
+		user.FirstName, user.LastName, user.Email, user.DateCreating, user.Status, user.Password,
+	)
+
+	if saveErr != nil {
+		logger.Error("error when trying to Save user", saveErr)
+		return 0, rest_errors.NewInternalServerError("error when trying to save user", errors.New("database error"))
+	}
+
 	userId, err := insertResult.LastInsertId()
 	if err != nil {
 
 		logger.Error("error when trying to get last insert id after creating a new user", err)
-		return errors.NewInternalServerError("database error")
+		return 0, rest_errors.NewInternalServerError("error when trying to save user", errors.New("database error"))
 	}
-	user.Id = userId
-
-	return nil
+	return userId, nil
 }
 
-func (user *User) Update() *errors.RestErr {
-	stmt, err := usersdb.Client.Prepare(queryUpdateUser)
-	if err != nil {
-		logger.Error("error when trying to prepare Update user statement", err)
-		return errors.NewInternalServerError("database error")
-	}
-	defer stmt.Close()
-
-	if _, err = stmt.Exec(user.FirstName, user.LastName, user.Email, user.Id); err != nil {
-		
+func (d *userDaoStruct) Update(ctx context.Context, user User) *rest_errors.RestErr {
+	if _, err := d.client.ExecContext(
+		ctx,
+		queryUpdateUser,
+		user.FirstName, user.LastName, user.Email, user.Id,
+	); err != nil {
 		logger.Error("error when trying to update user", err)
-		return errors.NewInternalServerError("database error")
+		return rest_errors.NewInternalServerError("error when trying to update user", errors.New("database error"))
 	}
 
 	return nil
 }
 
-func (user *User) Delete() *errors.RestErr {
-	stmt, err := usersdb.Client.Prepare(queryDeleteUer)
-	if err != nil {
-		logger.Error("error when trying to prepare Delete user statement", err)
-		return errors.NewInternalServerError("database error")
+func (d *userDaoStruct) PartialUpdate(ctx context.Context, user PartialUser) *rest_errors.RestErr {
+	query, queryArgs := queryBuilder(queryPartialUpdateUser, user)
+	if _, err := d.client.ExecContext(
+		ctx,
+		query,
+		queryArgs...,
+	); err != nil {
+		logger.Error("error when trying to update user", err)
+		return rest_errors.NewInternalServerError("error when trying to update user", errors.New("database error"))
 	}
-	defer stmt.Close()
 
-	if _, err = stmt.Exec(user.Id); err != nil {
+	return nil
+}
+
+func (d *userDaoStruct) Delete(ctx context.Context, id int64) *rest_errors.RestErr {
+	if _, err := d.client.ExecContext(
+		ctx,
+		queryDeleteUer,
+		id,
+	); err != nil {
 
 		logger.Error("error when trying to delete user", err)
-		return errors.NewInternalServerError("database error")
+		return rest_errors.NewInternalServerError("error when trying to delete user", errors.New("database error"))
 	}
 
 	return nil
 }
 
-func (user *User) FindByStatus(status string) ([]User, *errors.RestErr) {
-	stmt, err := usersdb.Client.Prepare(queryUserByStatus)
-	if err != nil {
-		logger.Error("error when trying to prepare find users by status statement", err)
-		return nil, errors.NewInternalServerError("database error")
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.Query(status)
+func (d *userDaoStruct) FindByStatus(ctx context.Context, status string) ([]User, *rest_errors.RestErr) {
+	rows, err := d.client.QueryContext(ctx, queryUserByStatus, status)
 	if err != nil {
 		logger.Error("error when trying to find users by status", err)
-		return nil, errors.NewInternalServerError("database error")
+		return nil, rest_errors.NewInternalServerError("error when trying to find user by status", errors.New("database error"))
 	}
 	defer rows.Close()
 
@@ -118,37 +130,65 @@ func (user *User) FindByStatus(status string) ([]User, *errors.RestErr) {
 	for rows.Next() {
 		var user User
 		if err := rows.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreating, &user.Status); err != nil {
-			
 			logger.Error("error when scan user row into user struct", err)
-			return nil, errors.NewInternalServerError("database error")
+			return nil, rest_errors.NewInternalServerError("error when trying to find user by status", errors.New("database error"))
 		}
-		
+
 		result = append(result, user)
 	}
 	if len(result) == 0 {
-		return nil, errors.NewNotFoundError(fmt.Sprintf("no user matching status %v", status))
+		return nil, rest_errors.NewNotFoundError(fmt.Sprintf("no user matching status %v", status))
 	}
 	return result, nil
 }
 
-func (user *User) FindByEmail() *errors.RestErr {
-	stmt, err := usersdb.Client.Prepare(queryFindByEmail)
-	if err != nil {
-		logger.Error("error when trying to prepare get user by email and password statement", err)
-		return errors.NewInternalServerError("database error")
-	}
-	defer stmt.Close()
-
-	result := stmt.QueryRow(user.Email, StatusActive)
+func (d *userDaoStruct) FindByEmail(ctx context.Context, email string) (*User, *rest_errors.RestErr) {
+	var user User
+	result := d.client.QueryRowContext(
+		ctx,
+		queryFindByEmail,
+		email, StatusActive,
+	)
 	if getErr := result.Scan(
-		&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreating, &user.Status, &user.Password); getErr != nil{
+		&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreating, &user.Status, &user.Password); getErr != nil {
 		if strings.Contains(getErr.Error(), mysqlutils.ErrorNoRows) {
 			return errors.NewNotFoundError("invalid user credentials")
 		}
 
-		logger.Error("error when trying to get user by email and password", getErr)	
-		return errors.NewInternalServerError("database error")
+		logger.Error("error when trying to get user by email and password", getErr)
+		return nil, rest_errors.NewInternalServerError("error when trying to find user by email", errors.New("database error"))
 	}
-	
-	return nil
+
+	return &user, nil
+}
+
+func queryBuilder(rawQuery string, userData PartialUser) (string, []any) {
+	const (
+		setFirstName = "first_name = ?"
+		setLastName  = "last_name = ?"
+		setEmail     = "email = ?"
+		setStatus    = "status = ?"
+		setLast      = "WHERE id=?;"
+	)
+
+	queryPart := make([]string, 0, 4)
+	data := make([]any, 0, 5)
+	if userData.FirstName != nil {
+		data = append(data, *userData.FirstName)
+		queryPart = append(queryPart, setFirstName)
+	}
+	if userData.LastName != nil {
+		data = append(data, *userData.LastName)
+		queryPart = append(queryPart, setLastName)
+	}
+	if userData.Email != nil {
+		data = append(data, *userData.Email)
+		queryPart = append(queryPart, setEmail)
+	}
+	if userData.Status != nil {
+		data = append(data, *userData.Status)
+		queryPart = append(queryPart, setStatus)
+	}
+	data = append(data, userData.Id)
+	return fmt.Sprintf("%s %s %s", rawQuery, strings.Join(queryPart, ", "), setLast), data
 }

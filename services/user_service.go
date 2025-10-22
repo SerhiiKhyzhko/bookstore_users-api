@@ -1,28 +1,35 @@
 package services
 
 import (
+	"context"
+
 	"github.com/SerhiiKhyzhko/bookstore_users-api/domain/users"
 	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/crypto_utils"
 	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/date_utils"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/errors"
+	"github.com/SerhiiKhyzhko/bookstore_utils-go/rest_errors"
 )
 
-var UsersService UserServiceInterface = &usersService{}
-
-type usersService struct{
+type usersService struct {
+	userDao users.UserDaoInterface
 }
 
 type UserServiceInterface interface {
-	CreateUser(users.User) (*users.User, *errors.RestErr)
-	GetUser(int64) (*users.User, *errors.RestErr)
-	UpdateUser(users.User) (*users.User, *errors.RestErr)
-	PartialUpdateUser(users.User) (*users.User, *errors.RestErr)
-	DeleteUser(int64) *errors.RestErr
-	Search(status string) (users.Users, *errors.RestErr)
-	LoginUser(users.LoginRequest) (*users.User, *errors.RestErr)
+	CreateUser(context.Context, users.User) (*users.User, *rest_errors.RestErr)
+	GetUser(context.Context, int64) (*users.User, *rest_errors.RestErr)
+	UpdateUser(context.Context, users.User) *rest_errors.RestErr
+	PartialUpdateUser(context.Context, users.User) *rest_errors.RestErr
+	DeleteUser(context.Context, int64) *rest_errors.RestErr
+	Search(context.Context, string) (users.Users, *rest_errors.RestErr)
+	LoginUser(context.Context, users.LoginRequest) (*users.User, *rest_errors.RestErr)
 }
 
-func (s *usersService)CreateUser(user users.User) (*users.User, *errors.RestErr) {
+func NewUserService(dao users.UserDaoInterface) *usersService {
+	return &usersService{
+		userDao: dao,
+	}
+}
+
+func (s *usersService) CreateUser(ctx context.Context, user users.User) (*users.User, *rest_errors.RestErr) {
 	user.Status = users.StatusActive
 	user.DateCreating = dateutils.GetNowDbFormat()
 	hashedPassword, err := cryptoutils.GetBcrypt(user.Password)
@@ -31,94 +38,65 @@ func (s *usersService)CreateUser(user users.User) (*users.User, *errors.RestErr)
 	}
 	user.Password = hashedPassword
 
-	if err := user.Validate(); err != nil{
+	if err := user.Validate(); err != nil {
 		return nil, err
 	}
 
-	if err = user.Save(); err != nil {
+	id, err := s.userDao.Save(ctx, user)
+	if err != nil {
 		return nil, err
 	}
+	user.Id = id
 
 	return &user, nil
 }
 
-func (s *usersService)GetUser(userId int64) (*users.User, *errors.RestErr) {
-	result := users.User{Id: userId}
-	if err := result.Get(); err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
-
-func (s *usersService)UpdateUser(user users.User) (*users.User, *errors.RestErr) {
-	current, err := s.GetUser(user.Id) 
+func (s *usersService) GetUser(ctx context.Context, userId int64) (*users.User, *rest_errors.RestErr) {
+	result, err := s.userDao.Get(ctx, userId)
 	if err != nil {
 		return nil, err
 	}
-
-	current.FirstName = user.FirstName
-	current.LastName = user.LastName
-	current.Email = user.Email
-	
-
-	if err = current.Update(); err != nil {
-		return nil, err
-	}
-
-	return current, nil
+	return result, nil
 }
 
-func (s *usersService)PartialUpdateUser(user users.User) (*users.User, *errors.RestErr) {
-	current, err := s.GetUser(user.Id) 
-	if err != nil {
-		return nil, err
+func (s *usersService) UpdateUser(ctx context.Context, user users.User)  *rest_errors.RestErr {
+	if err := s.userDao.Update(ctx, user); err != nil {
+		return err
 	}
 
-	if user.FirstName != "" {
-		current.FirstName = user.FirstName
-	}
-	if user.LastName != "" {
-		current.LastName = user.LastName
-	}
-	if user.Email != "" {
-		current.Email = user.Email
-	}
-
-	if err = current.Update(); err != nil {
-		return nil, err
-	}
-
-	return current, nil
+	return nil
 }
 
-func (s *usersService)DeleteUser(userId int64) *errors.RestErr {
-	user := &users.User{Id: userId}
-	return user.Delete()
-}
-
-func (s *usersService)Search(status string) (users.Users, *errors.RestErr) {
-	dao := &users.User{}
-	users, err := dao.FindByStatus(status)
-
-	if err != nil {
-		return nil, err
-	}
-	return  users, nil
-}
-
-func (s *usersService) LoginUser(request users.LoginRequest) (*users.User, *errors.RestErr) {
-	dao := &users.User{
-		Email: request.Email,
-		Password: request.Password,
-	}
-
-	if err := dao.FindByEmail(); err != nil {
-		return nil, err
-	}
-
-	if err := cryptoutils.ComparePassword(dao.Password, request.Password); err != nil {
-		return nil, err
+func (s *usersService) PartialUpdateUser(ctx context.Context, user users.PartialUser) *rest_errors.RestErr {
+	if err := s.userDao.PartialUpdate(ctx, user); err != nil {
+		return err
 	}
 	
-	return dao, nil
+	return nil
+}
+
+func (s *usersService) DeleteUser(ctx context.Context, userId int64) *rest_errors.RestErr {
+	return s.userDao.Delete(ctx, userId)
+}
+
+func (s *usersService) Search(ctx context.Context, status string) (users.Users, *rest_errors.RestErr) {
+	users, err := s.userDao.FindByStatus(ctx, status)
+
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (s *usersService) LoginUser(ctx context.Context, request users.LoginRequest) (*users.User, *rest_errors.RestErr) {
+	user, err := s.userDao.FindByEmail(ctx, request.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cryptoutils.ComparePassword(user.Password, request.Password); err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
