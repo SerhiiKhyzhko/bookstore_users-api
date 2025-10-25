@@ -19,6 +19,7 @@ require (
 )
 
 require (
+	github.com/SerhiiKhyzhko/bookstore_utils-go v0.0.0-20251025161815-65837e8e87cc
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect

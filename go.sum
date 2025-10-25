@@ -4,6 +4,8 @@ github.com/SerhiiKhyzhko/bookstore-oauth-go v0.0.0-20251017194832-441be1893457 h
 github.com/SerhiiKhyzhko/bookstore-oauth-go v0.0.0-20251017194832-441be1893457/go.mod h1:t788oP8ow94Rhj59opvqOk6k/4GWsGcWJPnOweeFLnA=
 github.com/SerhiiKhyzhko/bookstore-oauth-go v0.0.0-20251018203732-2e7ab7a343f4 h1:KhTgIOJTbVSQeP/DhhICrOPZEF8gSQj/Ja6RJ8krIZM=
 github.com/SerhiiKhyzhko/bookstore-oauth-go v0.0.0-20251018203732-2e7ab7a343f4/go.mod h1:t788oP8ow94Rhj59opvqOk6k/4GWsGcWJPnOweeFLnA=
+github.com/SerhiiKhyzhko/bookstore_utils-go v0.0.0-20251025161815-65837e8e87cc h1:/uNcYJA54XO/TDw2ZRWBfYWCFgujkNPltxJUC6yuFiU=
+github.com/SerhiiKhyzhko/bookstore_utils-go v0.0.0-20251025161815-65837e8e87cc/go.mod h1:JmbTphfqGZ9LOAIwRH/6GJ6GrrCne0mlbpbbHg4z7oA=
 github.com/bytedance/sonic v1.14.0 h1:/OfKt8HFw0kh2rj8N0F6C/qPGRESq0BbaNZgcNXXzQQ=
 github.com/bytedance/sonic v1.14.0/go.mod h1:WoEbx8WTcFJfzCe0hbmyTGrfjt8PzNEBdxlNUO24NhA=
 github.com/bytedance/sonic/loader v0.3.0 h1:dskwH8edlzNMctoruo8FPTJDF3vLtDT0sXZwvZJyqeA=
