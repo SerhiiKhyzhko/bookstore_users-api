@@ -1,15 +1,15 @@
 package app
 
 import(
-	"github.com/SerhiiKhyzhko/bookstore_users-api/controllers/users"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/controllers/userController"
 )
 
-func mapUrls() {
-	router.POST("/users", users.Create) 
-	router.GET("/users/:users_id", users.Get)
-	router.PUT("/users/:users_id",users.Update)
-	router.PATCH("/users/:users_id",users.Update)
-	router.DELETE("/users/:users_id",users.Delete)
-	router.GET("internal/users/search", users.Search)
-	router.POST("/users/login", users.Login) 
+func mapUrls(userCtrl *userController.UserController) {
+	router.POST("/users", userCtrl.Create) 
+	router.GET("/users/:users_id", userCtrl.Get)
+	router.PUT("/users/:users_id",userCtrl.Put)
+	router.PATCH("/users/:users_id",userCtrl.Patch)
+	router.DELETE("/users/:users_id",userCtrl.Delete)
+	router.GET("internal/users/search", userCtrl.Search)
+	router.POST("/users/login", userCtrl.Login) 
 }

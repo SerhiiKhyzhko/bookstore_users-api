@@ -5,17 +5,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GetBcrypt(input string) (string, *rest_errors.RestErr) {
+func GetBcrypt(input string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input), 12)
 	if err != nil {
-		return "", rest_errors.NewBadRequestError(err.Error())
+		return "", fmt.Errorf("error when trying to convert value: %w", err)
 	}
 	return string(hashedPassword), nil
 }
 
 func ComparePassword(hashedPassword string, password string) *errors.RestErr {
 	if err:= bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil{
-		return rest_errors.NewBadRequestError(err.Error())
+		return fmt.Errorf("Process failed: %w", err)
 	}
 	return nil
 }

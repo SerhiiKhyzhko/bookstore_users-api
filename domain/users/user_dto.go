@@ -3,7 +3,7 @@ package users
 import (
 	"strings"
 
-	"github.com/SerhiiKhyzhko/bookstore_utils-go/rest_errors"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/user_errors"
 )
 
 const(
@@ -22,17 +22,17 @@ type User struct {
 
 type Users []User
 
-func (user *User) Validate() *rest_errors.RestErr {
+func (user *User) Validate() error {
 	user.FirstName = strings.TrimSpace(user.FirstName)
 	user.LastName = strings.TrimSpace(user.LastName)
 	
 	user.Email = strings.TrimSpace(strings.ToLower(user.Email))
 	if user.Email == ""{
-		return rest_errors.NewBadRequestError("invalid email")
+		return fmt.Errorf("%w: invalid email", user_errors.BadRequestErr)
 	}
 	user.Password = strings.TrimSpace(user.Password)
 	if len(user.Password) < 4 {
-		return rest_errors.NewBadRequestError("invalid password. Password has to be at least 4 symbols")
+		return fmt.Errorf("%w: invalid password. Password has to be at least 4 symbols", user_errors.BadRequestErr)
 	}
 	return nil
 }
