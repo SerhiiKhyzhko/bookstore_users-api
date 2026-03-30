@@ -28,9 +28,9 @@ func requestError(reqErr error) rest_errors.RestErr {
 		case errors.Is(reqErr, user_errors.RequestTimeoutErr):
 			return rest_errors.NewRestError("request timeout", http.StatusRequestTimeout, "database error", nil)
 		case errors.Is(reqErr, user_errors.NotFoundErr):
-			return rest_errors.NewNotFoundError("Ueser not found with given id")
+			return rest_errors.NewNotFoundError("Ueser not found")
 		case errors.Is(reqErr, user_errors.BadRequestErr):
-			return rest_errors.NewBadRequestError(reqErr.Error())
+			return rest_errors.NewBadRequestError("Bad request")
 		default:
 			return rest_errors.NewInternalServerError("internal server error", errors.New("database error"))
 	}

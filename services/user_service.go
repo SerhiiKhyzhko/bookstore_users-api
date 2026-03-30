@@ -34,15 +34,15 @@ func (s *usersService) CreateUser(ctx context.Context, user users.User) (*users.
 	defer cancel()
 	user.Status = users.StatusActive
 	user.DateCreating = dateutils.GetNowDbFormat()
+	if err := user.Validate(); err != nil {
+		return nil, err
+	}
+
 	hashedPassword, err := cryptoutils.GetBcrypt(user.Password)
 	if err != nil {
 		return nil, err
 	}
 	user.Password = hashedPassword
-
-	if err := user.Validate(); err != nil {
-		return nil, err
-	}
 
 	id, err := s.userDao.Save(ctx, user)
 	if err != nil {

@@ -5,16 +5,11 @@ import (
 	"fmt"
 	"log"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/SerhiiKhyzhko/bookstore_users-api/config"
-	"github.com/joho/godotenv"
 )
 
 func NewClient(cfg config.DbConfig) (*sql.DB, error) {
-		err := godotenv.Load()
-		if err != nil {
-			panic(err)
-		}
-
 	conectionString := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8",
 	cfg.DbUser,
 	cfg.DbPassword,

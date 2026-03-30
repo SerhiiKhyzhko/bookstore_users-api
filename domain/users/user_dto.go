@@ -17,7 +17,7 @@ type User struct {
 	Email        string `json:"email"`
 	DateCreating string `json:"date_creating"`
 	Status 		 string `json:"status"`
-	Password 	 string `json:"-"`
+	Password 	 string `json:"password"`
 }
 
 type Users []User

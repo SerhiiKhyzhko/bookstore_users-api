@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/SerhiiKhyzhko/bookstore_users-api/app"
 	"github.com/SerhiiKhyzhko/bookstore_users-api/config"
@@ -31,7 +32,8 @@ func main() {
 
 	client, err  := usersdb.NewClient(cfg.Db)
 	if err != nil {
-		panic(err)
+		logger.Error(err.Error(), err)
+		os.Exit(1)
 	}
 	userDao := users.NewUserDao(client, logger)
 	userService := services.NewUserService(userDao)
