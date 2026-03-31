@@ -1,6 +1,7 @@
 package users
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/SerhiiKhyzhko/bookstore_users-api/user_errors"
