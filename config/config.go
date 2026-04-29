@@ -3,11 +3,13 @@ package config
 import (
 	"log"
 	"os"
+	"time"
 )
 
 type Config struct {
 	Db     DbConfig
 	Logger loggerConfig
+	App    appConfig
 }
 
 type DbConfig struct {
@@ -18,9 +20,25 @@ type DbConfig struct {
 	DbName     string
 }
 
+type appConfig struct {
+	GinPort         string
+	CtxTimeout      time.Duration
+	OauthApiBaseUrl string
+	OauthTimeout    time.Duration
+}
+
 type loggerConfig struct {
 	Level      string
 	OutputPath string
+}
+
+func loadApp() appConfig {
+	app := appConfig{}
+	app.GinPort = getRequiredEnv("GIN_PORT")
+	app.CtxTimeout = getTimeWithDefault("CTX_TIMEOUT", "2s")
+	app.OauthApiBaseUrl = getRequiredEnv("OAUTH_API_BASE_URL")
+	app.OauthTimeout = getTimeWithDefault("OAUTH_TIMEOUT", "150ms")
+	return app
 }
 
 func loadDb() DbConfig {
@@ -48,9 +66,26 @@ func getRequiredEnv(key string) string {
 	return value
 }
 
+func getTimeWithDefault(key string, defaultValue string) time.Duration {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		res, err := time.ParseDuration(defaultValue)
+		if err != nil {
+			log.Fatalf("convertation of default value failed: %v", err)
+		}
+		return res
+	}
+	result, err := time.ParseDuration(value)
+	if err != nil {
+		log.Fatalf("Invalid value for %s", key)
+	}
+	return result
+}
+
 func Load() Config {
 	cfg := Config{}
 	cfg.Db = loadDb()
 	cfg.Logger = loadLogger()
+	cfg.App = loadApp()
 	return cfg
 }

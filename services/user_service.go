@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/SerhiiKhyzhko/bookstore_users-api/domain/users"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/crypto_utils"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/utils/date_utils"
+	cryptoutils "github.com/SerhiiKhyzhko/bookstore_users-api/utils/crypto_utils"
+	dateutils "github.com/SerhiiKhyzhko/bookstore_users-api/utils/date_utils"
 )
 
 type usersService struct {
-	userDao users.UserDaoInterface
+	userDao    users.UserDaoInterface
+	ctxTimeout time.Duration
 }
 
 type UserServiceInterface interface {
@@ -23,14 +24,15 @@ type UserServiceInterface interface {
 	LoginUser(context.Context, users.LoginRequest) (*users.User, error)
 }
 
-func NewUserService(dao users.UserDaoInterface) *usersService {
+func NewUserService(timeout time.Duration, dao users.UserDaoInterface) *usersService {
 	return &usersService{
-		userDao: dao,
+		userDao:    dao,
+		ctxTimeout: timeout,
 	}
 }
 
 func (s *usersService) CreateUser(ctx context.Context, user users.User) (*users.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, s.ctxTimeout)
 	defer cancel()
 	user.Status = users.StatusActive
 	user.DateCreating = dateutils.GetNowDbFormat()
@@ -54,7 +56,7 @@ func (s *usersService) CreateUser(ctx context.Context, user users.User) (*users.
 }
 
 func (s *usersService) GetUser(ctx context.Context, userId int64) (*users.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, s.ctxTimeout)
 	defer cancel()
 	result, err := s.userDao.Get(ctx, userId)
 	if err != nil {
@@ -64,33 +66,37 @@ func (s *usersService) GetUser(ctx context.Context, userId int64) (*users.User, 
 }
 
 func (s *usersService) UpdateUser(ctx context.Context, user users.User) (*users.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	if err := s.userDao.Update(ctx, user); err != nil {
+	updateCtx, cancelUpdate := context.WithTimeout(ctx, s.ctxTimeout)
+	defer cancelUpdate()
+	if err := s.userDao.Update(updateCtx, user); err != nil {
 		return nil, err
 	}
 
-	return s.GetUser(ctx, user.Id)
+	getCtx, cancelGet := context.WithTimeout(ctx, s.ctxTimeout)
+	defer cancelGet()
+	return s.GetUser(getCtx, user.Id)
 }
 
 func (s *usersService) PartialUpdateUser(ctx context.Context, user users.PartialUser) (*users.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	if err := s.userDao.PartialUpdate(ctx, user); err != nil {
+	updateCtx, cancelUpdate := context.WithTimeout(ctx, s.ctxTimeout)
+	defer cancelUpdate()
+	if err := s.userDao.PartialUpdate(updateCtx, user); err != nil {
 		return nil, err
 	}
-	
-	return s.GetUser(ctx, user.Id)
+
+	getCtx, cancelGet := context.WithTimeout(ctx, s.ctxTimeout)
+	defer cancelGet()
+	return s.GetUser(getCtx, user.Id)
 }
 
 func (s *usersService) DeleteUser(ctx context.Context, userId int64) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, s.ctxTimeout)
 	defer cancel()
 	return s.userDao.Delete(ctx, userId)
 }
 
 func (s *usersService) Search(ctx context.Context, status string) (users.Users, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, s.ctxTimeout)
 	defer cancel()
 	users, err := s.userDao.FindByStatus(ctx, status)
 
@@ -101,7 +107,7 @@ func (s *usersService) Search(ctx context.Context, status string) (users.Users, 
 }
 
 func (s *usersService) LoginUser(ctx context.Context, request users.LoginRequest) (*users.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, s.ctxTimeout)
 	defer cancel()
 	user, err := s.userDao.FindByEmail(ctx, request.Email)
 	if err != nil {
@@ -111,6 +117,6 @@ func (s *usersService) LoginUser(ctx context.Context, request users.LoginRequest
 	if err := cryptoutils.ComparePassword(user.Password, request.Password); err != nil {
 		return nil, err
 	}
-
+	user.Password = ""
 	return user, nil
 }

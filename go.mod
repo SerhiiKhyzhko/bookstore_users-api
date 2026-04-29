@@ -6,7 +6,7 @@ require github.com/gin-gonic/gin v1.11.0
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/SerhiiKhyzhko/bookstore-oauth-go v0.0.0-20251018203732-2e7ab7a343f4 // indirect
+	github.com/SerhiiKhyzhko/bookstore-oauth-go v0.0.0-20260428152252-062c6e859fd6 // indirect
 	github.com/go-resty/resty/v2 v2.16.5 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
@@ -19,7 +19,7 @@ require (
 )
 
 require (
-	github.com/SerhiiKhyzhko/bookstore_utils-go v0.0.0-20260304214926-ac781c02620f
+	github.com/SerhiiKhyzhko/bookstore_utils-go v0.0.0-20260428151356-5a9238c66292
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect

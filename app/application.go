@@ -10,9 +10,9 @@ var (
 	router = gin.Default()
 )
 
-func StartApplication(controller *userController.UserController, logger *logger.Logger) {
+func StartApplication(port string, controller *userController.UserController, logger *logger.Logger) {
 	mapUrls(controller)
 
 	logger.Info("about to start the application...")
-	router.Run(":8081")
+	router.Run(port)
 }

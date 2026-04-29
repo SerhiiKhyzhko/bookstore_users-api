@@ -2,6 +2,7 @@ package userController
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -15,11 +16,13 @@ import (
 
 type UserController struct {
 	userService services.UserServiceInterface
+	oauthClient *oauth.OAuthClient
 }
 
-func NewUserController(service services.UserServiceInterface) *UserController {
+func NewUserController(service services.UserServiceInterface, client *oauth.OAuthClient) *UserController {
 	return &UserController{
 		userService: service,
+		oauthClient: client,
 	}
 }
 
@@ -28,11 +31,11 @@ func requestError(reqErr error) rest_errors.RestErr {
 		case errors.Is(reqErr, user_errors.RequestTimeoutErr):
 			return rest_errors.NewRestError("request timeout", http.StatusRequestTimeout, "database error", nil)
 		case errors.Is(reqErr, user_errors.NotFoundErr):
-			return rest_errors.NewNotFoundError("Ueser not found")
+			return rest_errors.NewNotFoundError(fmt.Sprintf("Ueser not found: %s", reqErr.Error()))
 		case errors.Is(reqErr, user_errors.BadRequestErr):
-			return rest_errors.NewBadRequestError("Bad request")
+			return rest_errors.NewBadRequestError(fmt.Sprintf("Bad request: %s", reqErr.Error()))
 		default:
-			return rest_errors.NewInternalServerError("internal server error", errors.New("database error"))
+			return rest_errors.NewInternalServerError("internal server error", reqErr)//errors.New("database error"))
 	}
 }
 
@@ -65,8 +68,9 @@ func (uc *UserController) Create(c *gin.Context) {
 
 func (uc *UserController) Get(c *gin.Context) {
 	ctx := c.Request.Context()
-	if err := oauth.AutenticationRequest(c.Request); err != nil {
-		c.JSON(err.Status, err)
+	if err := uc.oauthClient.AuthenticationRequest(c.Request); err != nil {
+		reqErr := requestError(err)
+		c.JSON(reqErr.Status(), reqErr)
 		return
 	}
 	userId, idErr := getUserId(c.Param("users_id"))
@@ -82,11 +86,11 @@ func (uc *UserController) Get(c *gin.Context) {
 		return
 	}
 
-	if oauth.GetCallerId(c.Request) == user.Id {
+	if id, ok  := uc.oauthClient.GetCallerId(c.Request); ok && id == user.Id {
 		c.JSON(http.StatusOK, user.Marshall(false))
 		return
 	}
-	c.JSON(http.StatusOK, user.Marshall(oauth.IsPublic(c.Request)))
+	c.JSON(http.StatusOK, user.Marshall(uc.oauthClient.IsPublic(c.Request)))
 }
 
 func (uc *UserController) Patch(c *gin.Context) {
