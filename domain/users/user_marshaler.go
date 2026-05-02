@@ -34,10 +34,10 @@ func (user *User) Marshall(isPublic bool) interface{} {
 	}
 	return PrivateUser{
 		Id:           user.Id,
-        FirstName:    user.FirstName,
-        LastName:     user.LastName,
-        Email:        user.Email,
-        DateCreating: user.DateCreating,
-        Status:       user.Status,
+		FirstName:    user.FirstName,
+		LastName:     user.LastName,
+		Email:        user.Email,
+		DateCreating: user.DateCreating,
+		Status:       user.Status,
 	}
 }
