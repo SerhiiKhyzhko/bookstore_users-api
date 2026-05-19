@@ -1,20 +1,34 @@
 # Bookstore Users API
 
-A Go-based microservice for managing users within the "Bookstore" project ecosystem. It handles user registration, profile management, and identity verification.
+A Go-based microservice for managing users within the "Bookstore" project ecosystem. It handles user registration, profile management, and authentication-related queries using a MySQL database.
 
 ## Technology Stack
 
-*   **Framework:** [Gin](https://github.com/gin-gonic/gin) for high-performance HTTP routing and handling.
-*   **HTTP Client:** [Resty](https://github.com/go-resty/resty) for expressive and simple client-side HTTP requests to other services.
+*   **Framework:** [Gin](https://github.com/gin-gonic/gin) for high-performance HTTP routing.
+*   **API Documentation:** [Swagger UI](https://swagger.io/tools/swagger-ui/) for interactive API exploration and testing.
 *   **Configuration:** [GoDotEnv](https://github.com/joho/godotenv) for loading environment variables from a `.env` file during local development.
+*   **Primary Datastore:** MySQL.
 
 ## Architectural Notes
 
-This service is built following the principles of **Clean Architecture**, separating the core business logic from external concerns.
+*   **Clean Architecture:** This service is built following the principles of Clean Architecture, separating the core business logic from external concerns like the database and web framework.
+*   **Mutating Validation:** The `User.Validate()` method performs data sanitization **before** validation. It intentionally **mutates** the `User` object it's called on by trimming whitespace and converting email to lowercase. This ensures data consistency before persistence.
 
-*   **Extensible Datasources:** The `datasources` directory is structured to support multiple database backends. The current MySQL implementation can be found in `datasources/mysql/`, and other databases (e.g., PostgreSQL) can be added in parallel without affecting existing code.
+## API Documentation (Swagger)
 
-*   **Mutating Validation:** The `User.Validate()` method performs data sanitization **before** validation. It intentionally **mutates** the `User` object it's called on: it trims whitespace from fields and converts the email to lowercase. This ensures data consistency before persistence.
+This service provides an interactive API documentation powered by Swagger UI. It allows you to explore all available endpoints, view their models, and execute requests directly from your browser.
+
+Once the application is running, you can access the Swagger interface at:
+
+**[http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)**
+
+*(Note: The port `8080` should match the `GIN_PORT` configured in your `.env` file.)*
+
+To regenerate Swagger docs after modifying controller annotations:
+
+```bash
+swag init --parseDependency --parseInternal
+```
 
 ## API Behavior
 
@@ -22,41 +36,39 @@ This service is built following the principles of **Clean Architecture**, separa
 
 Several endpoints support a mechanism to control the level of detail in the JSON response via the `X-Public` HTTP header.
 
-*   **`X-Public: true`**: When this header is present and set to `true`, the API returns a **public** representation of the user object, containing a limited set of non-sensitive fields.
-*   **Header Absent or Not `true`**: If the header is not provided or has any other value, the API returns a **private** representation with a more complete set of user fields.
-
-This allows the same endpoint to serve different consumers (e.g., a public-facing frontend vs. an internal admin panel) securely.
+*   **`X-Public: true`**: Returns a **public** representation of the user object, with a limited set of non-sensitive fields.
+*   **Header Absent or Not `true`**: Returns a **private** representation with a more complete set of user fields (excluding the password).
 
 ## Prerequisites
 
 - Go (1.18 or newer)
 - MySQL
-- A running instance of the **Bookstore OAuth microservice** that this service can call.
+- A running instance of the **Bookstore OAuth microservice** for validating access tokens.
 
 ## Configuration
 
-This project uses [GoDotEnv](https://github.com/joho/godotenv) to load configuration for local development. Simply create a `.env` file in the project root and use the following template. The application will automatically load these variables on startup.
+This project uses [GoDotEnv](https://github.com/joho/godotenv) to load configuration for local development. Create a `.env` file in the project root and use the following template.
 
 ```env
 # Application Settings
-GIN_PORT=:8080               # The port for the Gin server to listen on (the leading colon is important)
-CTX_TIMEOUT=2s               # Optional: Default timeout for requests. Defaults to 2s if not set.
+GIN_PORT=:8080
+CTX_TIMEOUT=2s
 
 # Logger
-LEVEL=info                   # e.g., debug, info, warn, error
-OUTPUT_PATHS=stdout          # Can be stdout, stderr, or a file path
+LEVEL=info
+OUTPUT_PATHS=stdout
 
 # ----- Dependencies -----
 # URL for the external OAuth microservice. Required for startup.
 OAUTH_API_BASE_URL=http://localhost:8081
-OAUTH_TIMEOUT=150ms          # Optional: Timeout for OAuth calls. Defaults to 150ms.
+OAUTH_TIMEOUT=150ms
 
 # ----- Database Connection -----
 DB_USER=root
 DB_PASSWORD=your_secret_password
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_NAME=users_db             # The name of the database to use
+DB_NAME=users_db
 ```
 
 ## Getting Started
@@ -67,13 +79,13 @@ DB_NAME=users_db             # The name of the database to use
     cd <repository-directory>
     ```
 
-2.  **Install dependencies:**
+2.  **Install/Update dependencies:**
     ```bash
     go mod tidy
     ```
 
 3.  **Set up the database:**
-    Ensure you have a MySQL database created and that its name matches the `DB_NAME` in your `.env` file. Apply the required schema migrations.
+    Ensure you have a MySQL database created and that its name matches `DB_NAME` in your `.env` file. Apply the required schema migrations.
 
 4.  **Run the application:**
     ```bash
@@ -94,20 +106,18 @@ To view test coverage:
 go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
 ```
 
-## API Endpoints
+## API Endpoints Overview
 
-This is a high-level overview. For a detailed and interactive specification, please refer to the upcoming Swagger documentation.
+Below is a high-level overview. For detailed information on request bodies, parameters, and response models, please refer to the [Swagger documentation](#api-documentation-swagger).
 
-The `X-Public` header can be used on endpoints that return a user object to control response detail.
-
-- `POST /users`: Create a new user.
-- `POST /users/login`: Log in a user.
-- `GET /users/:user_id`: Get user details.
-  - **Authentication**: This endpoint is protected. To use it, you must first **obtain an `access_token` from the corresponding OAuth API**. Then, include this token in the `Authorization` header as a `Bearer` token.
-    ```
-    Authorization: Bearer <your_access_token>
-    ```
-- `PUT /users/:user_id`: Update a user's information.
-- `PATCH /users/:user_id`: Partially update a user's information.
-- `DELETE /users/:user_id`: Delete a user.
-- `GET /internal/users/search`: Search for users by status.
+-   **`POST /users`**: Create a new user.
+-   **`POST /users/login`**: Log in a user.
+-   **`GET /users/:user_id`**: Get user details.
+    -   **Authentication**: Protected. Requires a valid `Bearer` token.
+-   **`PUT /users/:user_id`**: Update an entire user's information.
+    -   **Note**: If a user with the specified ID does not exist, the API will return a `404 Not Found` error.
+-   **`PATCH /users/:user_id`**: Partially update a user's information.
+    -   **Note**: If a user with the specified ID does not exist, the API will return a `404 Not Found` error.
+-   **`DELETE /users/:user_id`**: Delete a user.
+    -   **Note**: If a user with the specified ID does not exist, the API will return a `404 Not Found` error.
+-   **`GET /internal/users/search`**: Search for users by status.

@@ -13,6 +13,7 @@ import (
 	"github.com/SerhiiKhyzhko/bookstore_utils-go/logger"
 	"github.com/SerhiiKhyzhko/bookstore-oauth-go/oauth"
 	"github.com/joho/godotenv"
+	_ "github.com/SerhiiKhyzhko/bookstore_users-api/docs"
 )
 
 func main() {
