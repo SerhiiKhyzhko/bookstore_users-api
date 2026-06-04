@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SerhiiKhyzhko/bookstore_users-api/domain/users"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/user_errors"
-	cryptoutils "github.com/SerhiiKhyzhko/bookstore_users-api/utils/crypto_utils"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/domain/users"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/user_errors"
+	cryptoutils "github.com/SerhiiKhyzhko/bookstore_users-api/v2/utils/crypto_utils"
 	"github.com/stretchr/testify/assert"
 )
 

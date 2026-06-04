@@ -6,7 +6,7 @@ import (
 	"log"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/config"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/config"
 )
 
 func NewClient(cfg config.DbConfig) (*sql.DB, error) {

@@ -5,20 +5,22 @@ A Go-based microservice for managing users within the "Bookstore" project ecosys
 ## Technology Stack
 
 *   **Framework:** [Gin](https://github.com/gin-gonic/gin) for high-performance HTTP routing.
-*   **API Documentation:** [Swagger UI](https://swagger.io/tools/swagger-ui/) for interactive API exploration and testing.
-*   **Configuration:** [GoDotEnv](https://github.com/joho/godotenv) for loading environment variables from a `.env` file during local development.
+*   **Authentication:** Handled via the custom `bookstore-oauth-go` SDK, which performs local, stateless JWT validation.
+*   **API Documentation:** [Swagger UI](https://swagger.io/tools/swagger-ui/) for interactive API exploration.
+*   **Configuration:** [GoDotEnv](https://github.com/joho/godotenv) for loading environment variables during local development.
 *   **Primary Datastore:** MySQL.
 
 ## Architectural Notes
 
-*   **Clean Architecture:** This service is built following the principles of Clean Architecture, separating the core business logic from external concerns like the database and web framework.
-*   **Mutating Validation:** The `User.Validate()` method performs data sanitization **before** validation. It intentionally **mutates** the `User` object it's called on by trimming whitespace and converting email to lowercase. This ensures data consistency before persistence.
+*   **Clean Architecture:** This service is built following the principles of Clean Architecture, separating core business logic from external concerns.
+*   **Delegated JWT Authentication:** This service does not handle JWT validation logic directly. Instead, it relies on the **`bookstore-oauth-go`** library, which was refactored to perform local, stateless validation without network calls. This keeps the `users-api` clean of authentication specifics and promotes reusable, consistent security across the microservice ecosystem.
+*   **Mutating Validation:** The `User.Validate()` method performs data sanitization **before** validation by trimming whitespace and converting email to lowercase.
 
 ## API Documentation (Swagger)
 
 This service provides an interactive API documentation powered by Swagger UI. It allows you to explore all available endpoints, view their models, and execute requests directly from your browser.
 
-Once the application is running, you can access the Swagger interface at:
+The Swagger UI is only available when the `APP_ENV` is set to `development`. Once the application is running in development mode, you can access it at:
 
 **[http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)**
 
@@ -30,20 +32,11 @@ To regenerate Swagger docs after modifying controller annotations:
 swag init --parseDependency --parseInternal
 ```
 
-## API Behavior
-
-### Response Payload Control (`X-Public` Header)
-
-Several endpoints support a mechanism to control the level of detail in the JSON response via the `X-Public` HTTP header.
-
-*   **`X-Public: true`**: Returns a **public** representation of the user object, with a limited set of non-sensitive fields.
-*   **Header Absent or Not `true`**: Returns a **private** representation with a more complete set of user fields (excluding the password).
-
 ## Prerequisites
 
-- Go (1.18 or newer)
+- Go (1.23 or newer)
 - MySQL
-- A running instance of the **Bookstore OAuth microservice** for validating access tokens.
+- An up-to-date version of the `bookstore-oauth-go` library.
 
 ## Configuration
 
@@ -53,15 +46,12 @@ This project uses [GoDotEnv](https://github.com/joho/godotenv) to load configura
 # Application Settings
 GIN_PORT=:8080
 CTX_TIMEOUT=2s
+APP_ENV=development # Use 'development' to enable Swagger, or 'production'
 
-# Logger
-LEVEL=info
-OUTPUT_PATHS=stdout
-
-# ----- Dependencies -----
-# URL for the external OAuth microservice. Required for startup.
-OAUTH_API_BASE_URL=http://localhost:8081
-OAUTH_TIMEOUT=150ms
+# ----- JWT Authentication -----
+# This secret is used by the bookstore-oauth-go SDK to verify JWT signatures.
+# It must be the same key used by the OAuth API to sign tokens.
+SECRET_KEY=your_super_secret_signing_key_must_be_long_and_secure
 
 # ----- Database Connection -----
 DB_USER=root
@@ -108,16 +98,18 @@ go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
 
 ## API Endpoints Overview
 
-Below is a high-level overview. For detailed information on request bodies, parameters, and response models, please refer to the [Swagger documentation](#api-documentation-swagger).
+The API is now split into public and protected endpoints. For detailed information on models and error responses, please refer to the [Swagger documentation](#api-documentation-swagger).
 
+### Public Endpoints
+These endpoints do not require authentication.
 -   **`POST /users`**: Create a new user.
 -   **`POST /users/login`**: Log in a user.
--   **`GET /users/:user_id`**: Get user details.
-    -   **Authentication**: Protected. Requires a valid `Bearer` token.
--   **`PUT /users/:user_id`**: Update an entire user's information.
-    -   **Note**: If a user with the specified ID does not exist, the API will return a `404 Not Found` error.
--   **`PATCH /users/:user_id`**: Partially update a user's information.
-    -   **Note**: If a user with the specified ID does not exist, the API will return a `404 Not Found` error.
--   **`DELETE /users/:user_id`**: Delete a user.
-    -   **Note**: If a user with the specified ID does not exist, the API will return a `404 Not Found` error.
--   **`GET /internal/users/search`**: Search for users by status.
+
+### Protected Endpoints
+These endpoints are protected by a JWT middleware and require a valid `Authorization: Bearer <token>` header. They operate on the user identified by the `user_id` within the token.
+
+-   **`GET /users`**: Get the details of the currently authenticated user.
+-   **`PUT /users`**: Update the entire profile of the currently authenticated user.
+-   **`PATCH /users`**: Partially update the profile of the currently authenticated user.
+-   **`DELETE /users`**: Delete the currently authenticated user.
+-   **`GET /internal/users/search`**: Search for users by status. (This endpoint is also protected).

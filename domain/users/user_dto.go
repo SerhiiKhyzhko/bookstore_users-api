@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/SerhiiKhyzhko/bookstore_users-api/user_errors"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/user_errors"
 )
 
 const (

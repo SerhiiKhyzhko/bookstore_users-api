@@ -4,25 +4,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
-	"github.com/SerhiiKhyzhko/bookstore-oauth-go/oauth"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/domain/users"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/services"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/user_errors"
+	"github.com/SerhiiKhyzhko/bookstore-oauth-go/v2/jwtsdk"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/domain/users"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/services"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/user_errors"
 	"github.com/SerhiiKhyzhko/bookstore_utils-go/rest_errors"
 	"github.com/gin-gonic/gin"
 )
 
 type UserController struct {
 	userService services.UserServiceInterface
-	oauthClient *oauth.OAuthClient
 }
 
-func NewUserController(service services.UserServiceInterface, client *oauth.OAuthClient) *UserController {
+func NewUserController(service services.UserServiceInterface) *UserController {
 	return &UserController{
 		userService: service,
-		oauthClient: client,
 	}
 }
 
@@ -39,16 +36,19 @@ func requestError(reqErr error) rest_errors.RestErr {
 	}
 }
 
-func getUserId(userIdParam string) (int64, rest_errors.RestErr) {
-	userId, userErr := strconv.ParseInt(userIdParam, 10, 64)
-	if userErr != nil {
-		return 0, rest_errors.NewBadRequestError("user id should be a number")
+func getFromContext[T any](c *gin.Context, key string) (T, bool) {
+	value, exist := c.Get(key)
+	if !exist {
+		var empty T
+		return empty, false
 	}
-	return userId, nil
+
+	result, ok := value.(T)
+	return result, ok
 }
 
 // @Summary     Create new user
-// @Description Create new user with provided informtion. If X-Public header is true return 'public user' with
+// @Description It is a public endpoint. Create new user with provided informtion. If X-Public header is true return 'public user' with
 // @Description the most common fields. If X-Public header is false return 'private user' with all fields accept password
 // @Tags        users
 // @Accept      json
@@ -79,7 +79,7 @@ func (uc *UserController) Create(c *gin.Context) {
 }
 
 // @Summary     Get user
-// @Description Return user using id obtained via URL and access token. If X-Public header is true return 'public user' with
+// @Description It is a private endpoint whitch require jwt token. Return user using id obtained via URL and access token. If X-Public header is true return 'public user' with
 // @Description the most common fields. If X-Public header is false return 'private user' with all fields accept password
 // @Tags        users
 // @Produce     json
@@ -89,19 +89,16 @@ func (uc *UserController) Create(c *gin.Context) {
 // @Failure     408 {object} user_errors.SwaggerRestErr
 // @Failure     404 {object} user_errors.SwaggerRestErr
 // @Failure     500 {object} user_errors.SwaggerRestErr
-// @Router      /users/{id} [get]
+// @Router      /users [get]
 func (uc *UserController) Get(c *gin.Context) {
 	ctx := c.Request.Context()
-	if err := uc.oauthClient.AuthenticationRequest(c.Request); err != nil {
-		reqErr := requestError(err)
-		c.JSON(reqErr.Status(), reqErr)
+	claims, ok := getFromContext[*jwtsdk.Claims](c, jwtsdk.ClaimsKey)
+	if !ok {
+		restErr := rest_errors.NewInternalServerError("empty claims", fmt.Errorf("internal server error"))
+		c.JSON(restErr.Status(), restErr)
 		return
 	}
-	userId, idErr := getUserId(c.Param("users_id"))
-	if idErr != nil {
-		c.JSON(idErr.Status(), idErr)
-		return
-	}
+	userId := claims.UserId
 
 	user, getErr := uc.userService.GetUser(ctx, userId)
 	if getErr != nil {
@@ -109,16 +106,15 @@ func (uc *UserController) Get(c *gin.Context) {
 		c.JSON(restErr.Status(), restErr)
 		return
 	}
-
-	if id, ok := uc.oauthClient.GetCallerId(c.Request); ok && id == user.Id {
-		c.JSON(http.StatusOK, user.Marshall(false))
-		return
+	isPublic, ok := getFromContext[bool](c, jwtsdk.IsPublicKey)
+	if !ok {
+		isPublic = true // make request public to return short\public user data sturuct
 	}
-	c.JSON(http.StatusOK, user.Marshall(uc.oauthClient.IsPublic(c.Request)))
+	c.JSON(http.StatusOK, user.Marshall(isPublic))
 }
 
 // @Summary     Partially update user fields
-// @Description Update the user with provided informtion. If X-Public header is true return 'public user' with
+// @Description It is a private endpoint whitch require jwt token. Update the user with provided informtion. If X-Public header is true return 'public user' with
 // @Description the most common fields. If X-Public header is false return 'private user' with all fields accept password
 // @Tags        users
 // @Accept      json
@@ -128,14 +124,16 @@ func (uc *UserController) Get(c *gin.Context) {
 // @Failure     400 {object} user_errors.SwaggerRestErr
 // @Failure     408 {object} user_errors.SwaggerRestErr
 // @Failure     500 {object} user_errors.SwaggerRestErr
-// @Router      /users/{id} [patch]
+// @Router      /users [patch]
 func (uc *UserController) Patch(c *gin.Context) {
 	ctx := c.Request.Context()
-	userId, idErr := getUserId(c.Param("users_id"))
-	if idErr != nil {
-		c.JSON(idErr.Status(), idErr)
+	claims, ok := getFromContext[*jwtsdk.Claims](c, jwtsdk.ClaimsKey)
+	if !ok {
+		restErr := rest_errors.NewInternalServerError("empty claims", fmt.Errorf("internal server error"))
+		c.JSON(restErr.Status(), restErr)
 		return
 	}
+	userId := claims.UserId
 
 	var user users.PartialUser
 
@@ -157,7 +155,7 @@ func (uc *UserController) Patch(c *gin.Context) {
 }
 
 // @Summary     Replace entire user
-// @Description Update user with provided informtion. If X-Public header is true return 'public user' with
+// @Description It is a private endpoint whitch require jwt token. Update user with provided informtion. If X-Public header is true return 'public user' with
 // @Description the most common fields. If X-Public header is false return 'private user' with all fields accept password
 // @Tags        users
 // @Accept      json
@@ -167,14 +165,16 @@ func (uc *UserController) Patch(c *gin.Context) {
 // @Failure     400 {object} user_errors.SwaggerRestErr
 // @Failure     408 {object} user_errors.SwaggerRestErr
 // @Failure     500 {object} user_errors.SwaggerRestErr
-// @Router      /users/{id} [put]
+// @Router      /users [put]
 func (uc *UserController) Put(c *gin.Context) {
 	ctx := c.Request.Context()
-	userId, idErr := getUserId(c.Param("users_id"))
-	if idErr != nil {
-		c.JSON(idErr.Status(), idErr)
+	claims, ok := getFromContext[*jwtsdk.Claims](c, jwtsdk.ClaimsKey)
+	if !ok {
+		restErr := rest_errors.NewInternalServerError("empty claims", fmt.Errorf("internal server error"))
+		c.JSON(restErr.Status(), restErr)
 		return
 	}
+	userId := claims.UserId
 
 	var user users.User
 
@@ -196,7 +196,7 @@ func (uc *UserController) Put(c *gin.Context) {
 }
 
 // @Summary     Delete user
-// @Description Delete an user using id obtained via URL
+// @Description It is a private endpoint whitch require jwt token. Delete an user using id obtained via URL
 // @Tags        users
 // @Produce     json
 // @Param       id path string true "User id"
@@ -204,14 +204,16 @@ func (uc *UserController) Put(c *gin.Context) {
 // @Failure     404 {object} user_errors.SwaggerRestErr
 // @Failure     408 {object} user_errors.SwaggerRestErr
 // @Failure     500 {object} user_errors.SwaggerRestErr
-// @Router      /users/{id} [delete]
+// @Router      /users [delete]
 func (uc *UserController) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
-	userId, idErr := getUserId(c.Param("users_id"))
-	if idErr != nil {
-		c.JSON(idErr.Status(), idErr)
+	claims, ok := getFromContext[*jwtsdk.Claims](c, jwtsdk.ClaimsKey)
+	if !ok {
+		restErr := rest_errors.NewInternalServerError("empty claims", fmt.Errorf("internal server error"))
+		c.JSON(restErr.Status(), restErr)
 		return
 	}
+	userId := claims.UserId
 
 	if err := uc.userService.DeleteUser(ctx, userId); err != nil {
 		restErr := requestError(err)
@@ -222,12 +224,12 @@ func (uc *UserController) Delete(c *gin.Context) {
 }
 
 // @Summary     Search users
-// @Description Returns an array of users If X-Public header is true return 'public user' with
+// @Description It is a private endpoint whitch require jwt token. Returns an array of users If X-Public header is true return 'public user' with
 // @Description the most common fields. If X-Public header is false return 'private user' with all fields accept password
 // @Tags        users
 // @Accept      json
 // @Produce     json
-// @Param       request body users.User true "search request"
+// @Param 		status query string false "User status filter"
 // @Success     200 {object} []users.User
 // @Failure     408 {object} user_errors.SwaggerRestErr
 // @Failure     500 {object} user_errors.SwaggerRestErr
@@ -246,7 +248,7 @@ func (uc *UserController) Search(c *gin.Context) {
 }
 
 // @Summary     Log in user
-// @Description Returns user specific user whitch match given email and password. If X-Public
+// @Description It is a public endpoint. Returns user specific user whitch match given email and password. If X-Public
 // @Description header is true return 'public user' with the most common fields. If X-Public header
 // @Description is false return 'private user' with all fields accept password
 // @Tags        users

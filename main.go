@@ -4,16 +4,16 @@ import (
 	"log"
 	"os"
 
-	"github.com/SerhiiKhyzhko/bookstore_users-api/app"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/config"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/controllers/userController"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/datasources/mysql/users_db"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/domain/users"
-	"github.com/SerhiiKhyzhko/bookstore_users-api/services"
+	"github.com/SerhiiKhyzhko/bookstore-oauth-go/v2/jwtsdk"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/app"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/config"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/controllers/userController"
+	usersdb "github.com/SerhiiKhyzhko/bookstore_users-api/v2/datasources/mysql/users_db"
+	_ "github.com/SerhiiKhyzhko/bookstore_users-api/v2/docs"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/domain/users"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/services"
 	"github.com/SerhiiKhyzhko/bookstore_utils-go/logger"
-	"github.com/SerhiiKhyzhko/bookstore-oauth-go/oauth"
 	"github.com/joho/godotenv"
-	_ "github.com/SerhiiKhyzhko/bookstore_users-api/docs"
 )
 
 func main() {
@@ -33,7 +33,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	oauthClient := oauth.NewOAuthClient(cfg.App.OauthApiBaseUrl, cfg.App.OauthTimeout)
+	oauthClient := jwtsdk.NewJwtManager(cfg.App.SecretKey, logger)
 
 	client, err := usersdb.NewClient(cfg.Db)
 	if err != nil {
@@ -42,6 +42,6 @@ func main() {
 	}
 	userDao := users.NewUserDao(client, logger)
 	userService := services.NewUserService(cfg.App.CtxTimeout, userDao)
-	userCtrl := userController.NewUserController(userService, oauthClient)
-	app.StartApplication(cfg.App.GinPort, userCtrl, logger)
+	userCtrl := userController.NewUserController(userService)
+	app.StartApplication(cfg.App.GinPort, userCtrl, oauthClient, cfg.App.AppEnv, logger)
 }

@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/SerhiiKhyzhko/bookstore_users-api/domain/users"
-	cryptoutils "github.com/SerhiiKhyzhko/bookstore_users-api/utils/crypto_utils"
-	dateutils "github.com/SerhiiKhyzhko/bookstore_users-api/utils/date_utils"
+	"github.com/SerhiiKhyzhko/bookstore_users-api/v2/domain/users"
+	cryptoutils "github.com/SerhiiKhyzhko/bookstore_users-api/v2/utils/crypto_utils"
+	dateutils "github.com/SerhiiKhyzhko/bookstore_users-api/v2/utils/date_utils"
 )
 
 type usersService struct {

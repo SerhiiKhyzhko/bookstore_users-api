@@ -23,8 +23,8 @@ type DbConfig struct {
 type appConfig struct {
 	GinPort         string
 	CtxTimeout      time.Duration
-	OauthApiBaseUrl string
-	OauthTimeout    time.Duration
+	SecretKey       string
+	AppEnv 			string
 }
 
 type loggerConfig struct {
@@ -36,8 +36,8 @@ func loadApp() appConfig {
 	app := appConfig{}
 	app.GinPort = getRequiredEnv("GIN_PORT")
 	app.CtxTimeout = getTimeWithDefault("CTX_TIMEOUT", "2s")
-	app.OauthApiBaseUrl = getRequiredEnv("OAUTH_API_BASE_URL")
-	app.OauthTimeout = getTimeWithDefault("OAUTH_TIMEOUT", "150ms")
+	app.SecretKey = getRequiredEnv("SECRET_KEY")
+	app.AppEnv = getRequiredEnv("APP_ENV")
 	return app
 }
 
